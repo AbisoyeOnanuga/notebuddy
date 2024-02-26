@@ -1,11 +1,16 @@
-from pytube import YouTube
 import os
-import moviepy.editor as mp
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-import time
+from pytube import YouTube
+import moviepy.editor as mp
 
-# List of YouTube video URLs
-lecture_urls = [
+# Folder to save audio 
+AUDIO_DIR = Path('lecture_audio')
+if not AUDIO_DIR.exists():
+    AUDIO_DIR.mkdir()
+
+# List of YouTube video urls
+links = [
     "https://www.youtube.com/watch?v=TyVAU5iGe0k",
     "https://www.youtube.com/watch?v=Twb_APQpzkk",
     # The American Novel since 1945
@@ -48,36 +53,32 @@ lecture_urls = [
     # list of lecture video urls
 ]
 
-# Folder to save audio
-AUDIO_DIR = 'lecture_audio'  
+def download_audio(yt_link):
+    """Download audio from YouTube video as .wav file"""
+    
+    # Download YouTube video
+    yt = YouTube(yt_link)
+    
+    # Get audio stream
+    audio = yt.streams.filter(only_audio=True).first()
 
-if not os.path.exists(AUDIO_DIR):
-    os.mkdir(AUDIO_DIR)
+    # Download audio to memory
+    audio_bytes = audio.stream_to_buffer()
 
-def download_audio(yt_url):
-    """Download audio from YouTube video as WAV file"""
-    # Download YouTube video using Pytube
-    yt = YouTube(yt_url)
-    video = yt.streams.filter(only_audio=True).first()
-
-    # Download the audio stream to memory 
-    audio_bytes = video.stream_to_buffer()
-
-    # Load in-memory audio to MoviePy 
+    # Load audio bytes to MoviePy
     audio_clip = mp.AudioFileClip(audio_bytes.getvalue())
 
-    # Save audio clip as WAV file
-    file_name = yt.title + ".wav"
-    output_path = os.path.join(AUDIO_DIR, file_name)
+    # Save as .wav file
+    file_name = yt.title + '.wav'
+    output_path = AUDIO_DIR / file_name
     audio_clip.write_audiofile(output_path)
-
-    print(f"Saved {file_name}")
-
-if __name__ == "__main__":
-  # Create thread pool 
-  with ThreadPoolExecutor(max_workers=2) as executor:
-    for video_url in lecture_urls:
-       executor.submit(download_audio, video_url)  
-       time.sleep(0.5)
     
-print("Download complete!")
+    print(f'Saved {file_name}')
+
+if __name__ == '__main__':
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        for link in links:
+            executor.submit(download_audio, link)
+
+print('Download complete!')
