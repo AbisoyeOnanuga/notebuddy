@@ -1,18 +1,8 @@
-import youtube_dl
+import pytube
+from pytube import YouTube
+from pytube.exceptions import AgeRestrictedError
 import os
 from itertools import zip_longest
-
-# Set download options
-ydl_opts = {
-    'format': 'bestaudio/best',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'wav',
-        'preferredquality': '192', 
-    }],
-    'outtmpl': '%(id)s.%(ext)s',
-    'quiet': True
-}
 
 # List of YouTube video urls
 links = [
@@ -42,32 +32,53 @@ links = [
     "https://www.youtube.com/watch?v=L3LMbpZIKhQ",
     "https://www.youtube.com/watch?v=z8HKWUWS-lA",
     # MIT 6.042J Mathematics for computer Science
-    "https://www.youtube.com/watch?v=CzrUquTurzw",
-    "https://www.youtube.com/watch?v=vTDCChTAnrs",
-    "https://www.youtube.com/watch?v=Suodr0VVHgM",
-    "https://www.youtube.com/watch?v=MNAshR_e9sk",
-    "https://www.youtube.com/watch?v=NYBAxql8-Xo",
-    # Stanfor CS105 - Introduction
-    "https://www.youtube.com/watch?v=MNAshR_e9sk",
-    "https://www.youtube.com/watch?v=4cfctnaHyFM",
-    "https://www.youtube.com/watch?v=jVYs-GTqm5U",
-    "https://www.youtube.com/watch?v=d5d0ORQHNYs",
-    "https://www.youtube.com/watch?v=mOiY1fOROOg",
-    "https://www.youtube.com/watch?v=7haZCrQDHpA"
-    # Fourier Analysis [Data-Driven Science and Engineering]
+    "https://www.youtube.com/watch?v=L1ung0wil9Y",
+    # MIT Performance Engineering of Software Systems
+    "https://www.youtube.com/watch?v=Unzc731iCUY",
+    # How to Speak IAP 2018
+    "https://www.youtube.com/watch?v=6mbFO0ZLMW8",
+    # Hardware - CS50's Understanding Technology 2017
+    "https://www.youtube.com/watch?v=3G5hWM6jqPk"
+    # MIT 6.S191: Deep Generative Modeling  
     # list of lecture video urls
 ]
 
-if not os.path.exists('lecture_audio'):
-    os.makedirs('lecture_audio') 
-
+if not os.path.exists('audio'):
+    os.makedirs('audio') 
 os.chdir('audio')
 
-# Download videos in batches of 2
+# Download videos in batches of 2 
 for batch in zip_longest(*[iter(links)]*2):
-    batch = [x for x in batch if x is not None]
-    
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download(batch)
+    for url in batch:
+        if url is None:
+            continue
+        try:
+            filename = url.split("=")[1] + '.wav'
+            if os.path.exists(filename):
+                print(f"{filename} already exists, skipping download")
+                continue 
+            # download and convert audio 
+            yt = YouTube(url)
+        except AgeRestrictedError as e:
+            print(f"{url} is age restricted, and can't be accessed without logging in.")
+            continue 
+        except Exception as e:
+            print(f"Error downloading {url}: {e}")
+            continue
+        audio = yt.streams.filter(only_audio=True).first()
+        try: 
+            outfile = audio.download()
+            new_file = outfile.replace('.mp4', '.wav')
+            os.system(f'ffmpeg -i {outfile} {new_file}')
+        except Exception as e:
+            print(f"Error converting {url}: {e}")
+            continue
+        else:
+            # successful download
+            print('Download complete!')
 
-print('Download complete!')
+
+'''# Delete original mp4 files
+for url in batch:
+    mp4_file = url.split("=")[1] + '.mp4'
+    os.remove(mp4_file)'''
