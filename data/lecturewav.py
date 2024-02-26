@@ -1,9 +1,12 @@
 from pytube import YouTube
 import os
+import moviepy.editor as mp
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 # List of YouTube video URLs
 lecture_urls = [
-'''    "https://www.youtube.com/watch?v=TyVAU5iGe0k",
+    "https://www.youtube.com/watch?v=TyVAU5iGe0k",
     "https://www.youtube.com/watch?v=Twb_APQpzkk",
     # The American Novel since 1945
     "https://www.youtube.com/watch?v=MvPTVgGUsyc",
@@ -14,13 +17,13 @@ lecture_urls = [
     # Entrepreneurship
     "https://www.youtube.com/watch?v=153qWm92uRk",
     "https://www.youtube.com/watch?v=McXlRI_BJNg",
-    "https://www.youtube.com/watch?v=C5TWHj2Eqew",'''
+    "https://www.youtube.com/watch?v=C5TWHj2Eqew",
     # The Science of Storytelling
     "https://www.youtube.com/watch?v=nykOeWgQcHM",
     "https://www.youtube.com/watch?v=SE4P7IVCunE",
     "https://www.youtube.com/watch?v=MjbuarJ7SE0",
     # Introductin to Computer Science and Programming in Python
-    '''"https://www.youtube.com/watch?v=Igl8hE3Eac0",
+    "https://www.youtube.com/watch?v=Igl8hE3Eac0",
     "https://www.youtube.com/watch?v=yy989li6xgY",
     # Lecture collectin: Particle Physics
     "https://www.youtube.com/watch?v=pjDbQDNOBYY",
@@ -40,13 +43,10 @@ lecture_urls = [
     "https://www.youtube.com/watch?v=jVYs-GTqm5U",
     "https://www.youtube.com/watch?v=d5d0ORQHNYs",
     "https://www.youtube.com/watch?v=mOiY1fOROOg",
-    "https://www.youtube.com/watch?v=7haZCrQDHpA"'''
+    "https://www.youtube.com/watch?v=7haZCrQDHpA"
     # Fourier Analysis [Data-Driven Science and Engineering]
     # list of lecture video urls
-] 
-
-import moviepy.editor as mp
-from multiprocessing.pool import ThreadPool
+]
 
 # Folder to save audio
 AUDIO_DIR = 'lecture_audio'  
@@ -56,7 +56,6 @@ if not os.path.exists(AUDIO_DIR):
 
 def download_audio(yt_url):
     """Download audio from YouTube video as WAV file"""
-    
     # Download YouTube video using Pytube
     yt = YouTube(yt_url)
     video = yt.streams.filter(only_audio=True).first()
@@ -74,8 +73,11 @@ def download_audio(yt_url):
 
     print(f"Saved {file_name}")
 
-# Use thread pool to download videos in parallel 
-with ThreadPool(2) as pool:
-    pool.map(download_audio, lecture_urls)
+if __name__ == "__main__":
+  # Create thread pool 
+  with ThreadPoolExecutor(max_workers=2) as executor:
+    for video_url in lecture_urls:
+       executor.submit(download_audio, video_url)  
+       time.sleep(0.5)
     
 print("Download complete!")
