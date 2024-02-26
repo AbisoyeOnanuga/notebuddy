@@ -1,0 +1,4 @@
+pydub 0.25.1
+pytube 15.0.0
+torch 2.1.0
+transformers 4.37.2
