@@ -1,44 +1,21 @@
-import subprocess, os, wave
-import audioop
+import os # wave, subprocess, audioop
+from pydub import AudioSegment
 
-def convert_samplerate(data, source_sr, target_sr):
-  """Resample audio data from source_sr to target_sr"""
-  if source_sr == target_sr:
-    return data
-  if source_sr < target_sr:
-    # Upsample
-    factor = target_sr / source_sr
-    data = audioop.lin2lin(data, 2, factor)
-  else:
-    # Downsample
-    factor = source_sr / target_sr
-    data = audioop.lin2lin(data, 2, factor)
-  return data
+src_folder = 'audio'
+dest_folder = 'audio_16khz'
 
-# Get list of .mp4 files in current directory
-mp4_files = [f for f in os.listdir('audio') if f.endswith('.mp4')]
+os.makedirs(dest_folder, exist_ok=True)
 
-for in_file in mp4_files:
-  # Check if file is valid
-  try:
-    subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name', in_file])
-  except subprocess.CalledProcessError:
-    print(f"{in_file} is invalid!")
-    continue
+mp4_files = [f for f in os.listdir(src_folder) if f.endswith('.mp4')]
 
-for filename in mp4_files:
-    subprocess.run(['ffmpeg', '-i', filename, f'{filename}.wav'])
-    # Load .wav file
-    wav = wave.open(f'{filename}.wav', 'rb')
-    # Resample if needed
-    frame_rate = wav.getframerate()
-    if frame_rate != 16000:
-        data = wav.readframes(wav.getnframes())
-        converted = convert_samplerate(data, frame_rate, 16000)
-
-        # Save 16khz version
-        out = wave.open(f'{filename}_16khz.wav', 'wb') 
-        out.setframerate(16000)
-        out.writeframes(converted)
-        out.close()
-    wav.close()
+for i in range(0, len(mp4_files), 2):
+  chunk = mp4_files[i:i+2]
+  
+  for f in chunk:
+    src = os.path.join(src_folder, f)
+    dest = os.path.join(dest_folder, os.path.splitext(f)[0] + '.wav')
+    
+    # Convert .mp4 to .wav
+    sound = AudioSegment.from_file(src, format="mp4")
+    sound = sound.set_frame_rate(16000)
+    sound.export(dest, format="wav")
