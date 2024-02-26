@@ -1,13 +1,18 @@
+import youtube_dl
 import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-from pytube import YouTube
-import moviepy.editor as mp
+from itertools import zip_longest
 
-# Folder to save audio 
-AUDIO_DIR = Path('lecture_audio')
-if not AUDIO_DIR.exists():
-    AUDIO_DIR.mkdir()
+# Set download options
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'wav',
+        'preferredquality': '192', 
+    }],
+    'outtmpl': '%(id)s.%(ext)s',
+    'quiet': True
+}
 
 # List of YouTube video urls
 links = [
@@ -53,32 +58,16 @@ links = [
     # list of lecture video urls
 ]
 
-def download_audio(yt_link):
-    """Download audio from YouTube video as .wav file"""
+if not os.path.exists('lecture_audio'):
+    os.makedirs('lecture_audio') 
+
+os.chdir('audio')
+
+# Download videos in batches of 2
+for batch in zip_longest(*[iter(links)]*2):
+    batch = [x for x in batch if x is not None]
     
-    # Download YouTube video
-    yt = YouTube(yt_link)
-    
-    # Get audio stream
-    audio = yt.streams.filter(only_audio=True).first()
-
-    # Download audio to memory
-    audio_bytes = audio.stream_to_buffer()
-
-    # Load audio bytes to MoviePy
-    audio_clip = mp.AudioFileClip(audio_bytes.getvalue())
-
-    # Save as .wav file
-    file_name = yt.title + '.wav'
-    output_path = AUDIO_DIR / file_name
-    audio_clip.write_audiofile(output_path)
-    
-    print(f'Saved {file_name}')
-
-if __name__ == '__main__':
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        for link in links:
-            executor.submit(download_audio, link)
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        ydl.download(batch)
 
 print('Download complete!')
