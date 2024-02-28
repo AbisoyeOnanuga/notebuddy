@@ -1,28 +1,57 @@
-# import required modules
 import torch
-import torchaudio
-from torchaudio import transforms
-from torchaudio.datasets import LIBRISPEECH
-from torchaudio.models import Wav2Vec2Model
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+from torch.utils.data import Dataset, DataLoader
+import torch.multiprocessing as mp
+from math import ceil
 
-# load pretrained Wav2Vec2 model for English speech 
-model = torchaudio.models.Wav2Vec2Model()
-model.eval()
+# load model  
+processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
 
-# define audio transforms to prepare input 
-transforms = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_mels=64)
+# set device
+device = "cpu"
 
-# load sample classroom audio clip
-classroom_clip, sr = torchaudio.load('data/audio/1 Introductions.mp4')
+# load model  
+processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
 
-# transcribe audio clip using Wav2Vec2 model
-with torch.inference_mode():
-  input = transforms(classroom_clip).unsqueeze(0) # add batch dim
-  logits = model(input).logits  
-  predicted_ids = torch.argmax(logits, dim=-1)
-  transcription = model.decode(predicted_ids[0])
+# Define dataset to chunk audio
+class AudioDataset(Dataset):
 
-print(transcription)
+    def __init__(self, audio_file, chunk_len=10):  
+        self.audio_file = audio_file
+        self.chunk_len = chunk_len * 16000 # chunk length in samples
+        
+    def __getitem__(self, idx):
+        start = idx * self.chunk_len
+        stop = start + self.chunk_len
+        chunk = self.audio_file[start:stop]
+        return chunk
+
+    def __len__(self):
+        return ceil(len(self.audio_file) / self.chunk_len)
+
+# Transcribe function for each chunk
+def transcribe_chunk(chunk):
+    input = processor(chunk, sampling_rate=16_000, return_tensors="pt") 
+    logits = model(input.input_values).logits
+    transcription = processor.batch_decode(logits.argmax(dim=-1))
+    return transcription
+
+# Multiprocess transcribe all chunks    
+def transcribe(audio_file, output_file):
+    
+    ds = AudioDataset(audio_file)
+    loader = DataLoader(ds, batch_size=1)
+
+    pool = mp.Pool(mp.cpu_count())
+    results = pool.map(transcribe_chunk, loader)
+
+    with open(output_file, 'w') as f:
+        f.write(" ".join(results))
+
+# Usage
+transcribe('data/audio_16khz/The-Science-of-StorytellingThe-Storytelling-of-Science---Brian-Knutson.wav', 'data/transcribed/The-Science-of-Storytelling---Brian-Knutson.txt')
 
 # display transcription on mobile app UI
 # highlight key terms, offer playback  
@@ -34,38 +63,3 @@ print(transcription)
 # - simplify UX based on user testing
 # - add gamification elements 
 # - distribute on app stores
-'''
-import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-from datasets import load_dataset
-
-device = "cpu"
-torch_dtype = torch.float32
-
-model_id = "openai/whisper-large-v3"
-
-model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
-)
-model.to(device)
-
-processor = AutoProcessor.from_pretrained(model_id)
-
-pipe = pipeline(
-    "automatic-speech-recognition",
-    model=model,
-    tokenizer=processor.tokenizer,
-    feature_extractor=processor.feature_extractor,
-    max_new_tokens=128,
-    chunk_length_s=30,
-    batch_size=16,
-    return_timestamps=True,
-    torch_dtype=torch_dtype,
-    device=device,
-)
-
-dataset = load_dataset("distil-whisper/librispeech_long", "clean", split="validation")
-sample = dataset[0]["audio"]
-
-result = pipe(sample)
-print(result["text"])'''
